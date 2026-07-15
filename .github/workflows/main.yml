@@ -1,0 +1,47 @@
+name: Build unsigned IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: XcodeGen 설치
+        run: brew install xcodegen
+
+      - name: Xcode 프로젝트 생성
+        run: xcodegen generate
+
+      - name: 무서명 빌드
+        run: |
+          xcodebuild \
+            -project PhotoCleaner.xcodeproj \
+            -scheme PhotoCleaner \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: IPA 패키징
+        run: |
+          mkdir -p Payload
+          cp -R "build/Build/Products/Release-iphoneos/PhotoCleaner.app" Payload/
+          zip -qry PhotoCleaner-unsigned.ipa Payload
+          ls -la PhotoCleaner-unsigned.ipa
+
+      - name: IPA 업로드 (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoCleaner-unsigned-ipa
+          path: PhotoCleaner-unsigned.ipa
+          retention-days: 30
